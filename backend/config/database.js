@@ -5,8 +5,10 @@ import Redis from "ioredis";
 dotenv.config();
 
 const redisClient = new Redis(process.env.REDIS_URL);
-redisClient.on("error", console.error);
-redisClient.ping().then(console.log);
+redisClient.on("connect", () => console.log("✅ Redis connected"));
+redisClient.on("ready", () => console.log("🔑 Redis ready"));
+redisClient.on("error", (err) => console.error("❌ Redis error:", err));
+
 
 const connectDB = async () => {
   try {

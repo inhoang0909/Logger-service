@@ -16,19 +16,21 @@ app.use((req, res, next) => {
       method: req.method,
       status: res.statusCode,
       ip: req.ip,
-      timestamp: new Date(),
+      time: new Date(),
     };
 
-    try {
-      await axios.post("http://localhost:4000/logs", logData, {
-        headers: { "x-source-service": "fake-api-service" },
+    axios.post("http://localhost:4000/logs", logData, {
+      headers: { "x-source-service": "fake-api-service" },
+    })
+      .then(() => {
+        console.log("Log sent via HTTP:", logData.endpoint, logData.status);
+      })
+      .catch(err => {
+        console.error("Failed to send log:", err.message);
+        if (err.response) console.error('Response data:', err.response.data);
+        if (err.code) console.error('Error code:', err.code);
       });
-      console.log("Log sent via HTTP:", logData.endpoint, logData.status);
-    } catch (err) {
-      console.error("Failed to send log:", err.message);
-    }
   });
-
   next();
 });
 
@@ -46,5 +48,5 @@ app.get("/api/error", (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`🚀 Fake API server running at http://localhost:${port}`);
+  console.log(`Server running at http://localhost:${port}`);
 });

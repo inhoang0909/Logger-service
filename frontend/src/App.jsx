@@ -1,126 +1,107 @@
 import React, { useEffect, useState } from "react";
+import { Layout, Card, Table, Button, Modal } from "antd";
+import { Line } from "@ant-design/charts";
 import axios from "axios";
+
+const { Header, Content } = Layout;
 
 function LogDashboard() {
   const [stats, setStats] = useState([]);
-  const [errors, setErrors] = useState([]);
+  const [logs, setLogs] = useState([]);
+  const [selectedLog, setSelectedLog] = useState(null);
 
   const fetchStats = async () => {
     try {
       const res = await axios.get("http://localhost:4000/logs/stats");
       setStats(res.data.data || []);
     } catch (err) {
-      console.error("Failed to fetch stats:", err.message);
+      console.error(err);
     }
   };
 
-  const fetchErrors = async () => {
+  const fetchLogs = async () => {
     try {
-      const res = await axios.get("http://localhost:4000/logs/errors");
-      setErrors(res.data.data || []);
+      const res = await axios.get("/logs");
+      setLogs(res.data.logs || []);
     } catch (err) {
-      console.error("Failed to fetch errors:", err.message);
+      console.error(err);
     }
   };
 
   useEffect(() => {
     fetchStats();
-    fetchErrors();
-
-    const interval = setInterval(() => {
-      fetchStats();
-      fetchErrors();
-    }, 5000); // auto refresh mỗi 5s
-
+    fetchLogs();
+    const interval = setInterval(fetchStats, 1000 * 60 * 5); // every 5 min
     return () => clearInterval(interval);
   }, []);
 
+  const chartData = stats.map(item => ({
+    date: item._id.date,
+    count: item.totalCalls,
+  }));
+  const chartConfig = { data: chartData, xField: "date", yField: "count", smooth: true };
+
+  const statsColumns = [
+    { title: "Date", dataIndex: ["_id", "date"], key: "date" },
+    { title: "Service", dataIndex: ["_id", "service"], key: "service" },
+    { title: "Endpoint", dataIndex: ["_id", "endpoint"], key: "endpoint" },
+    { title: "Method", dataIndex: ["_id", "method"], key: "method" },
+    { title: "Status", dataIndex: ["_id", "status"], key: "status" },
+    { title: "IP", dataIndex: ["_id", "ip"], key: "ip" },
+    { title: "Total", dataIndex: "totalCalls", key: "total" },
+    { title: "Success", dataIndex: "successCalls", key: "success", render: val => <span style={{ color: "green" }}>{val}</span> },
+    { title: "Error", dataIndex: "errorCalls", key: "error", render: val => <span style={{ color: "red" }}>{val}</span> },
+  ];
+
+  const logColumns = [
+    { title: "Timestamp", dataIndex: "timestamp", key: "timestamp" },
+    { title: "Service", dataIndex: "service", key: "service" },
+    { title: "Endpoint", dataIndex: "endpoint", key: "endpoint" },
+    { title: "Method", dataIndex: "method", key: "method" },
+    { title: "Status", dataIndex: "status", key: "status" },
+    {
+      title: "Action",
+      key: "action",
+      render: (_, record) => <Button onClick={() => setSelectedLog(record)}>View</Button>,
+    },
+  ];
+
   return (
-    <div style={{ padding: "20px", fontFamily: "Arial, sans-serif" }}>
-      <h1>Logger Service Dashboard</h1>
+    <Layout style={{ padding: 24 }}>
+      <Header style={{ color: "#fff", fontSize: 24 }}>Logger Service Dashboard</Header>
+      <Content style={{ marginTop: 24 }}>
+        {/* <Card title="API Call Trend" style={{ marginBottom: 24 }}>
+          <Line {...chartConfig} />
+        </Card> */}
 
-      <h2>Stats (Aggregate per Endpoint)</h2>
-      <table border="1" cellPadding="6" cellSpacing="0" style={{ marginBottom: "20px", width: "100%" }}>
-        <thead style={{ backgroundColor: "#f2f2f2" }}>
-          <tr>
-            <th>Date</th>
-            <th>Service</th>
-            <th>Endpoint</th>
-            <th>Method</th>
-            <th>Status</th>
-            <th>IP</th>
-            <th>Total</th>
-            <th>Success</th>
-            <th>Error</th>
-          </tr>
-        </thead>
-        <tbody>
-          {stats.length === 0 ? (
-            <tr>
-              <td colSpan="9" style={{ textAlign: "center" }}>
-                No stats available
-              </td>
-            </tr>
-          ) : (
-            stats.map((row, idx) => (
-              <tr key={idx}>
-                <td>{row._id.date || "-"}</td>
-                <td>{row._id.service || "unknown-service"}</td>
-                <td>{row._id.endpoint}</td>
-                <td>{row._id.method}</td>
-                <td>{row._id.status}</td>
-                <td>{row._id.ip}</td>
-                <td>{row.totalCalls}</td>
-                <td style={{ color: "green" }}>{row.successCalls}</td>
-                <td style={{ color: "red" }}>{row.errorCalls}</td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+        <Card title="Stats Summary" style={{ marginBottom: 24 }}>
+          <Table
+            rowKey={(record, idx) => idx}
+            columns={statsColumns}
+            dataSource={stats}
+            pagination={{ pageSize: 10 }}
+          />
+        </Card>
 
-      <h2>Error Logs (Detailed)</h2>
-      <table border="1" cellPadding="6" cellSpacing="0" style={{ width: "100%" }}>
-        <thead style={{ backgroundColor: "#ffe6e6" }}>
-          <tr>
-            <th>Time</th>
-            <th>IP</th>
-            <th>Service</th>
-            <th>Endpoint</th>
-            <th>Method</th>
-            <th>Status</th>
-            <th>Error Message</th>
-            <th>Payload</th>
-          </tr>
-        </thead>
-        <tbody>
-          {errors.length === 0 ? (
-            <tr>
-              <td colSpan="8" style={{ textAlign: "center" }}>
-                No error logs
-              </td>
-            </tr>
-          ) : (
-            errors.map((err, idx) => (
-              <tr key={idx}>
-                <td>{err.time}</td>
-                <td>{err.ip}</td>
-                <td>{err.service}</td>
-                <td>{err.endpoint}</td>
-                <td>{err.method}</td>
-                <td style={{ color: "red" }}>{err.statusCode}</td>
-                <td>{err.errorMessage}</td>
-                <td>
-                  <pre style={{ fontSize: "12px", whiteSpace: "pre-wrap" }}>
-                    {JSON.stringify(err.payload, null, 2)}
-                  </pre>
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
+        <Card title="All API Logs">
+          <Table
+            rowKey="id"
+            columns={logColumns}
+            dataSource={logs}
+            pagination={{ pageSize: 10 }}
+          />
+        </Card>
+
+        <Modal
+          visible={!!selectedLog}
+          title="Log Details"
+          footer={null}
+          onCancel={() => setSelectedLog(null)}
+        >
+          <pre>{JSON.stringify(selectedLog, null, 2)}</pre>
+        </Modal>
+      </Content>
+    </Layout>
   );
 }
 

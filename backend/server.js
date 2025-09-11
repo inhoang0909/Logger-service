@@ -5,7 +5,6 @@ import { createServer } from "http";
 import connectDB from "./config/database.js";
 import logRoutes from "./routes/logRoutes.js";
 import loggerMiddleware from "./middleware/loggerMiddleware.js";
-import syncLogs from "./jobs/syncLog.js";
 import { startWorker } from "./worker/worker.js";
 
 dotenv.config();

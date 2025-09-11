@@ -38,33 +38,42 @@ setInterval(() => console.log(`❤️ Worker alive, buffer size=${buffer.length}
 export const startWorker = async () => {
   console.log("🚀 Log worker started, waiting for logs...");
 
-  while (true) {
+  const loop = async () => {
     try {
-      const data = await redisClient.blpop(LOG_QUEUE_KEY, 0); // block until log
-      if (!data || !data[1]) continue;
+      const data = await redisClient.blpop(LOG_QUEUE_KEY, 0);
+      console.log("📥 BLPOP raw data:", data);
 
-      const logEntry = JSON.parse(data[1]);
-      buffer.push({
-        service: logEntry.service,
-        endpoint: logEntry.endpoint,
-        method: logEntry.method,
-        status: logEntry.status,
-        ip: logEntry.ip,
-        duration: logEntry.durationMs,
-        date: logEntry.time.slice(0, 10),
-        error: {
-          message: logEntry.errorMessage || null,
-          stack: logEntry.errorStack || null,
-          payload: logEntry.payload || null,
-        },
-        createdAt: new Date(logEntry.time),
-      });
+      if (data && data[1]) {
+        const logEntry = JSON.parse(data[1]);
+        const logTime = logEntry.time || logEntry.timestamp || new Date().toISOString();
 
-      console.log(`📥 Pulled log from queue [${LOG_QUEUE_KEY}], buffer size=${buffer.length}`);
+        buffer.push({
+          service: logEntry.service || "unknown-service",
+          endpoint: logEntry.endpoint || "unknown-endpoint",
+          method: logEntry.method || "UNKNOWN",
+          status: logEntry.status || 0,
+          ip: logEntry.ip || "unknown-ip",
+          duration: logEntry.durationMs || null,
+          date: logTime.slice(0, 10),
+          error: {
+            message: logEntry.errorMessage || null,
+            stack: logEntry.errorStack || null,
+            payload: logEntry.payload || null,
+          },
+          createdAt: new Date(logTime),
+        });
 
-      if (buffer.length >= BATCH_SIZE) await flushLogs();
+        console.log(`📥 Pulled log, buffer size=${buffer.length}`);
+        if (buffer.length >= BATCH_SIZE) await flushLogs();
+      }
     } catch (err) {
       console.error("⚠️ Worker error:", err.message);
+    } finally {
+      // gọi lại chính nó → tránh block event loop
+      setImmediate(loop);
     }
-  }
+  };
+
+  loop();
 };
+
