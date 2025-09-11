@@ -147,3 +147,45 @@ export const getErrorLogs = async (req, res) => {
     });
   }
 };
+//GET monthly stats
+export const getMonthlyStats = async (req, res) => {
+  try {
+    const { month, year } = req.query;
+    const now = new Date();
+
+    const targetMonth = parseInt(month) || now.getMonth() + 1; // JS month 0-11
+    const targetYear = parseInt(year) || now.getFullYear();
+
+    const startDate = new Date(targetYear, targetMonth - 1, 1);
+    const endDate = new Date(targetYear, targetMonth, 0, 23, 59, 59, 999);
+
+    const stats = await Log.aggregate([
+      {
+        $match: { timestamp: { $gte: startDate, $lte: endDate } },
+      },
+      {
+        $group: {
+          _id: {
+            day: { $dayOfMonth: "$timestamp" },
+            month: { $month: "$timestamp" },
+            year: { $year: "$timestamp" },
+          },
+          totalCalls: { $sum: 1 },
+        },
+      },
+      { $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1 } },
+    ]);
+
+    const formatted = stats.map((s) => ({
+      date: `${s._id.year}-${String(s._id.month).padStart(2, "0")}-${String(
+        s._id.day
+      ).padStart(2, "0")}`,
+      totalCalls: s.totalCalls,
+    }));
+
+    res.json({ success: true, data: formatted });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+}

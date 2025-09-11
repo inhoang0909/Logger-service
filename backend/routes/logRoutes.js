@@ -3,7 +3,8 @@ import {
   enqueueLog,
   createLogDirect,
   getLogStats,
-  getErrorLogs
+  getErrorLogs,
+  getMonthlyStats
 } from "../controllers/logController.js";
 
 const router = express.Router();
@@ -11,6 +12,7 @@ const router = express.Router();
 router.post("/", enqueueLog);            
 router.post("/direct", createLogDirect); 
 router.get("/stats", getLogStats);      
-router.get("/errors", getErrorLogs);     
+router.get("/errors", getErrorLogs); 
+router.get("/monthly-stats", getMonthlyStats);    
 
 export default router;

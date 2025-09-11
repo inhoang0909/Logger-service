@@ -6,26 +6,43 @@ import axios from "axios";
 const { Header, Content } = Layout;
 
 function LogDashboard() {
-  const [stats, setStats] = useState([]);
+  const [stats, setStats] = useState([]); // summary & detail
+  const [monthlyStats, setMonthlyStats] = useState([]); // chart
 
   const fetchStats = async () => {
     try {
       const res = await axios.get("http://10.13.34.179:4000/logs/stats");
       setStats(res.data.data || []);
     } catch (err) {
-      console.error(err);
+      console.error("Error fetchStats:", err);
+    }
+  };  
+
+  const fetchMonthlyStats = async () => {
+    try {
+      const res = await axios.get("http://10.13.34.179:4000/logs/monthly-stats");
+      setMonthlyStats(res.data.data || []);
+    } catch (err) {
+      console.error("Error fetchMonthlyStats:", err);
     }
   };
 
   useEffect(() => {
     fetchStats();
-    const interval = setInterval(fetchStats, 10000); // Refresh every 10 seconds
+    fetchMonthlyStats();
+
+    const interval = setInterval(() => {
+      fetchStats();
+      fetchMonthlyStats();
+    }, 5000);
+
     return () => clearInterval(interval);
   }, []);
 
-  const chartData = stats.map(item => ({
-    date: item._id.date,
-    count: item.totalCalls,
+  /** Chart config (monthly stats) */
+  const chartData = monthlyStats.map(item => ({
+    date: item.date,          // format: yyyy-mm-dd (backend đã trả về)
+    count: item.totalCalls,   // tổng request trong ngày
   }));
 
   const chartConfig = {
@@ -39,6 +56,7 @@ function LogDashboard() {
     color: "#1890ff",
   };
 
+  /** Table columns */
   const summaryColumns = [
     { title: "Endpoint", dataIndex: ["_id", "endpoint"], key: "endpoint" },
     { title: "Total Calls", dataIndex: "totalCalls", key: "total" },
@@ -54,12 +72,7 @@ function LogDashboard() {
       title: "Method",
       dataIndex: ["_id", "method"],
       key: "method",
-      filters: [
-        { text: "GET", value: "GET" },
-        { text: "POST", value: "POST" },
-        { text: "PUT", value: "PUT" },
-        { text: "DELETE", value: "DELETE" },
-      ],
+      filters: ["GET","POST","PUT","DELETE"].map(m => ({ text: m, value: m })),
       onFilter: (value, record) => record._id.method === value,
       render: (method) => (
         <Tag color="blue" style={{ fontWeight: "bold" }}>{method}</Tag>
@@ -96,10 +109,13 @@ function LogDashboard() {
         Logger Service Dashboard
       </Header>
       <Content style={{ margin: 0, padding: 24, height: "calc(100vh - 64px)", overflow: "auto" }}>
+        
+        {/* Column Chart */}
         {/* <Card title="API Calls Trend (This Month)" style={{ marginBottom: 24 }}>
           <Column {...chartConfig} />
         </Card> */}
 
+        {/* Summary Table */}
         <Card title="API Call Summary" style={{ marginBottom: 24 }}>
           <Table
             rowKey={(record, idx) => idx}
@@ -110,6 +126,7 @@ function LogDashboard() {
           />
         </Card>
 
+        {/* Detail Table */}
         <Card title="API Logs (Grouped Details)">
           <Table
             rowKey={(record, idx) => idx}
