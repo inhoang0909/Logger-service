@@ -1,28 +1,17 @@
 import React, { useEffect, useState } from "react";
-import { Layout, Card, Table, Button, Modal } from "antd";
-import { Line } from "@ant-design/charts";
+import { Layout, Card, Table, Tag } from "antd";
+import { Column } from "@ant-design/charts";
 import axios from "axios";
 
 const { Header, Content } = Layout;
 
 function LogDashboard() {
   const [stats, setStats] = useState([]);
-  const [logs, setLogs] = useState([]);
-  const [selectedLog, setSelectedLog] = useState(null);
 
   const fetchStats = async () => {
     try {
-      const res = await axios.get("http://localhost:4000/logs/stats");
+      const res = await axios.get("http://10.13.34.179:4000/logs/stats");
       setStats(res.data.data || []);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const fetchLogs = async () => {
-    try {
-      const res = await axios.get("/logs");
-      setLogs(res.data.logs || []);
     } catch (err) {
       console.error(err);
     }
@@ -30,8 +19,7 @@ function LogDashboard() {
 
   useEffect(() => {
     fetchStats();
-    fetchLogs();
-    const interval = setInterval(fetchStats, 1000 * 60 * 5); // every 5 min
+    const interval = setInterval(fetchStats, 10000); // Refresh every 10 seconds
     return () => clearInterval(interval);
   }, []);
 
@@ -39,67 +27,98 @@ function LogDashboard() {
     date: item._id.date,
     count: item.totalCalls,
   }));
-  const chartConfig = { data: chartData, xField: "date", yField: "count", smooth: true };
 
-  const statsColumns = [
+  const chartConfig = {
+    data: chartData,
+    xField: "date",
+    yField: "count",
+    height: 300,
+    columnWidthRatio: 0.6,
+    xAxis: { title: { text: "Date" } },
+    yAxis: { title: { text: "Total API Calls" } },
+    color: "#1890ff",
+  };
+
+  const summaryColumns = [
+    { title: "Endpoint", dataIndex: ["_id", "endpoint"], key: "endpoint" },
+    { title: "Total Calls", dataIndex: "totalCalls", key: "total" },
+    { title: "Success", dataIndex: "successCalls", key: "success" },
+    { title: "Error", dataIndex: "errorCalls", key: "error" },
+  ];
+
+  const detailColumns = [
     { title: "Date", dataIndex: ["_id", "date"], key: "date" },
     { title: "Service", dataIndex: ["_id", "service"], key: "service" },
     { title: "Endpoint", dataIndex: ["_id", "endpoint"], key: "endpoint" },
-    { title: "Method", dataIndex: ["_id", "method"], key: "method" },
-    { title: "Status", dataIndex: ["_id", "status"], key: "status" },
-    { title: "IP", dataIndex: ["_id", "ip"], key: "ip" },
-    { title: "Total", dataIndex: "totalCalls", key: "total" },
-    { title: "Success", dataIndex: "successCalls", key: "success", render: val => <span style={{ color: "green" }}>{val}</span> },
-    { title: "Error", dataIndex: "errorCalls", key: "error", render: val => <span style={{ color: "red" }}>{val}</span> },
-  ];
-
-  const logColumns = [
-    { title: "Timestamp", dataIndex: "timestamp", key: "timestamp" },
-    { title: "Service", dataIndex: "service", key: "service" },
-    { title: "Endpoint", dataIndex: "endpoint", key: "endpoint" },
-    { title: "Method", dataIndex: "method", key: "method" },
-    { title: "Status", dataIndex: "status", key: "status" },
     {
-      title: "Action",
-      key: "action",
-      render: (_, record) => <Button onClick={() => setSelectedLog(record)}>View</Button>,
+      title: "Method",
+      dataIndex: ["_id", "method"],
+      key: "method",
+      filters: [
+        { text: "GET", value: "GET" },
+        { text: "POST", value: "POST" },
+        { text: "PUT", value: "PUT" },
+        { text: "DELETE", value: "DELETE" },
+      ],
+      onFilter: (value, record) => record._id.method === value,
+      render: (method) => (
+        <Tag color="blue" style={{ fontWeight: "bold" }}>{method}</Tag>
+      ),
     },
+    {
+      title: "Status",
+      dataIndex: ["_id", "status"],
+      key: "status",
+      filters: [
+        { text: "200", value: 200 },
+        { text: "500", value: 500 },
+        { text: "Others", value: "others" },
+      ],
+      onFilter: (value, record) => {
+        if (value === "others") {
+          return record._id.status !== 200 && record._id.status !== 500;
+        }
+        return record._id.status === value;
+      },
+      render: (status) => {
+        let color = "yellow";
+        if (status === 200) color = "green";
+        else if (status === 500) color = "red";
+        return <Tag color={color}>{status}</Tag>;
+      },
+    },
+    { title: "IP", dataIndex: ["_id", "ip"], key: "ip" },
   ];
 
   return (
-    <Layout style={{ padding: 24 }}>
-      <Header style={{ color: "#fff", fontSize: 24 }}>Logger Service Dashboard</Header>
-      <Content style={{ marginTop: 24 }}>
-        {/* <Card title="API Call Trend" style={{ marginBottom: 24 }}>
-          <Line {...chartConfig} />
+    <Layout style={{ height: "100vh", width: "100vw" }}>
+      <Header style={{ color: "#fff", fontSize: 24 }}>
+        Logger Service Dashboard
+      </Header>
+      <Content style={{ margin: 0, padding: 24, height: "calc(100vh - 64px)", overflow: "auto" }}>
+        {/* <Card title="API Calls Trend (This Month)" style={{ marginBottom: 24 }}>
+          <Column {...chartConfig} />
         </Card> */}
 
-        <Card title="Stats Summary" style={{ marginBottom: 24 }}>
+        <Card title="API Call Summary" style={{ marginBottom: 24 }}>
           <Table
             rowKey={(record, idx) => idx}
-            columns={statsColumns}
+            columns={summaryColumns}
             dataSource={stats}
             pagination={{ pageSize: 10 }}
+            style={{ border: "2px solid #eee", borderRadius: 8 }}
           />
         </Card>
 
-        <Card title="All API Logs">
+        <Card title="API Logs (Grouped Details)">
           <Table
-            rowKey="id"
-            columns={logColumns}
-            dataSource={logs}
+            rowKey={(record, idx) => idx}
+            columns={detailColumns}
+            dataSource={stats}
             pagination={{ pageSize: 10 }}
+            style={{ border: "2px solid #eee", borderRadius: 8 }}
           />
         </Card>
-
-        <Modal
-          visible={!!selectedLog}
-          title="Log Details"
-          footer={null}
-          onCancel={() => setSelectedLog(null)}
-        >
-          <pre>{JSON.stringify(selectedLog, null, 2)}</pre>
-        </Modal>
       </Content>
     </Layout>
   );

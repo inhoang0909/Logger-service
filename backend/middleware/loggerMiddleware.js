@@ -1,4 +1,4 @@
-import { redisClient } from "../config/database.js";
+import redisClient  from "../config/redis.js";
 
 const LOG_QUEUE_KEY = process.env.LOG_QUEUE_KEY || "log_queue";
 

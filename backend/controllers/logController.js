@@ -1,22 +1,28 @@
 import Redis from "ioredis";
-import { redisClient } from "../config/database.js";
 import Log from "../models/Log.js";
-const redis = new Redis("redis://default:sLJ0ZrvFxnQv26LRalUynIUAJNUYuYJG@redis-14428.c82.us-east-1-2.ec2.redns.redis-cloud.com:14428");
-
+import dotenv from "dotenv";
+dotenv.config();
 const LOG_QUEUE_KEY = process.env.LOG_QUEUE_KEY || "log_queue";
 
-// POST /logs → Gửi log qua HTTP, đẩy vào Redis
+const redisClient = new Redis(process.env.REDIS_URL, {
+  retryStrategy(times) {
+    return Math.min(times * 50, 2000); 
+  },
+});
 export const enqueueLog = async (req, res) => {
   try {
     console.log("Received logData:", req.body);
-    const logData = req.body;
 
+    const logData = req.body;
     if (!logData || typeof logData !== "object") {
       return res.status(400).json({ error: "Invalid log format" });
     }
 
     console.log("➡️ Pushing to Redis queue:", LOG_QUEUE_KEY);
-    const result = await redis.rpush(LOG_QUEUE_KEY, JSON.stringify(logData));
+    const result = await redisClient.rpush(
+      LOG_QUEUE_KEY,
+      JSON.stringify(logData)
+    );
     console.log(`📤 Enqueued log to ${LOG_QUEUE_KEY}, new length=${result}`);
 
     res.status(200).json({ success: true, message: "Log enqueued" });
