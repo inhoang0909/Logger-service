@@ -2,13 +2,42 @@ import Redis from "ioredis";
 import Log from "../models/Log.js";
 import dotenv from "dotenv";
 dotenv.config();
-const LOG_QUEUE_KEY = process.env.LOG_QUEUE_KEY || "log_queue";
 
-const redisClient = new Redis(process.env.REDIS_URL, {
+const LOG_QUEUE_KEY = process.env.LOG_QUEUE_KEY || "log_queue";
+const REDIS_URL = process.env.REDIS_URL || "redis://127.0.0.1:6379";
+
+// Create Redis client
+const redisClient = new Redis(REDIS_URL, {
   retryStrategy(times) {
-    return Math.min(times * 50, 2000); 
+    // Luôn retry sau 2s nếu mất kết nối
+    return 2000;
   },
+  reconnectOnError: (err) => {
+    console.error("❌ Redis error, reconnecting:", err.message);
+    return true;
+  },
+  keepAlive: 10000, // giữ socket sống
+  connectTimeout: 10000,
 });
+
+// Log các trạng thái connection
+redisClient.on("connect", () => console.log("🔌 Redis connected"));
+redisClient.on("ready", () => console.log("✅ Redis ready"));
+redisClient.on("error", (err) => console.error("❌ Redis error:", err));
+redisClient.on("close", () => console.warn("⚠️ Redis connection closed"));
+redisClient.on("reconnecting", () => console.log("♻️ Redis reconnecting..."));
+
+// Ping giữ kết nối định kỳ
+setInterval(async () => {
+  try {
+    await redisClient.ping();
+    console.log("📡 Redis ping OK");
+  } catch (err) {
+    console.error("🚨 Redis ping failed:", err);
+  }
+}, 30000);
+
+export { redisClient, LOG_QUEUE_KEY };
 export const enqueueLog = async (req, res) => {
   try {
     console.log("Received logData:", req.body);
@@ -83,22 +112,27 @@ export const getLogStats = async (req, res) => {
             method: "$method",
             status: "$status",
             ip: "$ip",
-            date: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }
+            date: { $dateToString: { format: "%Y-%m-%d", date: "$updatedAt" } }
           },
           totalCalls: { $sum: 1 },
           successCalls: {
-            $sum: {
-              $cond: [{ $lt: ["$status", 400] }, 1, 0]
-            }
+            $sum: { $cond: [{ $lt: ["$status", 400] }, 1, 0] }
           },
           errorCalls: {
-            $sum: {
-              $cond: [{ $gte: ["$status", 400] }, 1, 0]
-            }
+            $sum: { $cond: [{ $gte: ["$status", 400] }, 1, 0] }
           }
         }
       },
-      { $sort: { "_id.date": -1 } }
+      {
+        $sort: {
+          "_id.date": -1,
+          "_id.service": 1,
+          "_id.endpoint": 1,
+          "_id.method": 1,
+          "_id.status": 1,
+          "_id.ip": 1
+        }
+      }
     ]);
 
     res.json({
@@ -115,6 +149,7 @@ export const getLogStats = async (req, res) => {
     });
   }
 };
+
 
 // GET /logs/errors → Trả về log lỗi theo ngày
 export const getErrorLogs = async (req, res) => {
@@ -189,3 +224,4 @@ export const getMonthlyStats = async (req, res) => {
     res.status(500).json({ success: false, error: "Server error" });
   }
 }
+

@@ -18,7 +18,7 @@ const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 /** Flush logs to DB + Redis counter */
 const flushLogs = async () => {
   if (buffer.length === 0) return;
-  const logs = buffer.splice(0, buffer.length); // clone & clear
+  const logs = buffer.splice(0, buffer.length);
   try {
     await Log.insertMany(logs);
     const multi = redisClient.multi();
@@ -31,11 +31,11 @@ const flushLogs = async () => {
     console.log(`✅ Flushed ${logs.length} logs`);
   } catch (err) {
     console.error("❌ flushLogs error:", err.message);
-    buffer.unshift(...logs); // put back nếu fail
+    buffer.unshift(...logs); // rollback buffer
   }
 };
 
-/** Connect to Redis with retry (ioredis auto-reconnect nhưng thêm retry cho chắc) */
+/** Connect Redis with retry */
 const connectRedis = async () => {
   while (true) {
     try {
@@ -50,9 +50,13 @@ const connectRedis = async () => {
       redisClient.on("connect", () => console.log("🔌 Redis connecting..."));
       redisClient.on("ready", () => console.log("✅ Redis ready"));
       redisClient.on("error", (err) => console.error("Redis error:", err.message));
-      redisClient.on("end", () => console.log("❌ Redis disconnected"));
+      redisClient.on("end", async () => {
+        console.log("❌ Redis disconnected, restarting worker...");
+        await sleep(2000);
+        await connectRedis();
+        startWorker(); // restart worker loop
+      });
 
-      // test connection
       await redisClient.ping();
       console.log("✅ Redis connected (ping ok)");
       break;
@@ -64,14 +68,15 @@ const connectRedis = async () => {
   }
 };
 
-/** Worker loop: pull log from queue */
+/** Worker loop: BLPOP with timeout */
 const startWorker = async () => {
   console.log("🚀 Worker started");
   setInterval(flushLogs, FLUSH_INTERVAL);
 
   while (!isShuttingDown) {
     try {
-      const data = await redisClient.blpop(LOG_QUEUE_KEY, 0);
+      // BLPOP timeout 5s thay vì block vô hạn
+      const data = await redisClient.blpop(LOG_QUEUE_KEY, 5);
       if (data && data[1]) {
         const logEntry = JSON.parse(data[1]);
         buffer.push({
@@ -90,10 +95,21 @@ const startWorker = async () => {
       }
     } catch (err) {
       console.error("❌ Error in BLPOP:", err.message);
-      console.log("⏳ Retry BLPOP in 2s...");
       await sleep(2000);
     }
   }
+};
+
+/** Ping Redis định kỳ để giữ kết nối sống */
+const startHeartbeat = () => {
+  setInterval(async () => {
+    try {
+      await redisClient.ping();
+      console.log("💓 Redis heartbeat ok");
+    } catch (err) {
+      console.error("⚠️ Redis heartbeat failed:", err.message);
+    }
+  }, 30000); // 30s
 };
 
 /** Graceful shutdown */
@@ -118,6 +134,7 @@ process.on("SIGTERM", shutdown);
   try {
     await connectDB();
     await connectRedis();
+    startHeartbeat(); // bắt đầu ping Redis
     await startWorker();
   } catch (err) {
     console.error("Worker startup failed:", err.message);

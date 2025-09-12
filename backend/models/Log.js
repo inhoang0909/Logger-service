@@ -9,7 +9,7 @@ const logSchema = new mongoose.Schema(
     ip: { type: String },
     count: { type: Number, default: 1 },
     duration: { type: Number }, 
-    date: { type: String },    
+    date: { type: String, required: true },    
     error: {
       message: { type: String },
       stack: { type: String },

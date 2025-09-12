@@ -8,7 +8,8 @@ import loggerMiddleware from "./middleware/loggerMiddleware.js";
 const app = express();
 
 const corsOptions = {
-  origin: ["http://localhost:5173", "http://localhost:3000", "http://10.13.32.51:8080"],
+  origin: ["http://localhost:5173", "http://localhost:3000", "http://10.13.32.51:8080", "http://10.13.34.179:5173"
+],
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "x-source-service"],
