@@ -85,7 +85,7 @@ const startWorker = async () => {
           method: logEntry.method || "UNKNOWN",
           status: logEntry.status || 0,
           ip: logEntry.ip || "unknown",
-          date: (logEntry.time || new Date()).toString().slice(0, 10),
+          date: (logEntry.time || Date.now()),
           createdAt: new Date(logEntry.time || Date.now()),
         });
         console.log(`📥 Pulled log, buffer size=${buffer.length}`);

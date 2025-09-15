@@ -46,7 +46,9 @@ export const enqueueLog = async (req, res) => {
     if (!logData || typeof logData !== "object") {
       return res.status(400).json({ error: "Invalid log format" });
     }
-
+    if (logData.endpoint === "/favicon.ico") {
+      return res.status(200).json({ success: false, message: "Skipped /favicon.ico log" });
+    }
     console.log("➡️ Pushing to Redis queue:", LOG_QUEUE_KEY);
     const result = await redisClient.rpush(
       LOG_QUEUE_KEY,
@@ -76,6 +78,10 @@ export const createLogDirect = async (req, res) => {
       errorStack,
       payload
     } = req.body;
+    // Skip /favicon logs
+    if (endpoint === "/favicon") {
+      return res.status(200).json({ success: false, message: "Skipped /favicon log" });
+    }
 
     const log = await Log.create({
       service,
@@ -188,7 +194,7 @@ export const getMonthlyStats = async (req, res) => {
     const { month, year } = req.query;
     const now = new Date();
 
-    const targetMonth = parseInt(month) || now.getMonth() + 1; // JS month 0-11
+    const targetMonth = parseInt(month) || now.getMonth() + 1;
     const targetYear = parseInt(year) || now.getFullYear();
 
     const startDate = new Date(targetYear, targetMonth - 1, 1);
@@ -196,14 +202,14 @@ export const getMonthlyStats = async (req, res) => {
 
     const stats = await Log.aggregate([
       {
-        $match: { timestamp: { $gte: startDate, $lte: endDate } },
+        $match: { createdAt: { $gte: startDate, $lte: endDate } }, 
       },
       {
         $group: {
           _id: {
-            day: { $dayOfMonth: "$timestamp" },
-            month: { $month: "$timestamp" },
-            year: { $year: "$timestamp" },
+            day: { $dayOfMonth: "$createdAt" },
+            month: { $month: "$createdAt" },
+            year: { $year: "$createdAt" },
           },
           totalCalls: { $sum: 1 },
         },
@@ -223,5 +229,6 @@ export const getMonthlyStats = async (req, res) => {
     console.error(err);
     res.status(500).json({ success: false, error: "Server error" });
   }
-}
+};
+
 
