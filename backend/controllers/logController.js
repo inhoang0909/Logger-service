@@ -118,42 +118,48 @@ export const getLogStats = async (req, res) => {
             method: "$method",
             status: "$status",
             ip: "$ip",
-            date: { $dateToString: { format: "%Y-%m-%d", date: "$updatedAt" } }
-          },
-          totalCalls: { $sum: 1 },
-          successCalls: {
-            $sum: { $cond: [{ $lt: ["$status", 400] }, 1, 0] }
-          },
-          errorCalls: {
-            $sum: { $cond: [{ $gte: ["$status", 400] }, 1, 0] }
-          }
-        }
-      },
-      {
-        $sort: {
-          "_id.date": -1,
-          "_id.service": 1,
-          "_id.endpoint": 1,
-          "_id.method": 1,
-          "_id.status": 1,
-          "_id.ip": 1
+            date: {
+              $dateToString: {
+                format: "%Y-%m-%d %H:%M",
+                date: "$updatedAt",
+                timezone: "Asia/Ho_Chi_Minh"  
+              }
+            }
+        },
+        totalCalls: { $sum: 1 },
+        successCalls: {
+          $sum: { $cond: [{ $lt: ["$status", 400] }, 1, 0] }
+        },
+        errorCalls: {
+          $sum: { $cond: [{ $gte: ["$status", 400] }, 1, 0] }
         }
       }
+      },
+  {
+    $sort: {
+      "_id.date": -1,
+        "_id.service": 1,
+          "_id.endpoint": 1,
+            "_id.method": 1,
+              "_id.status": 1,
+                "_id.ip": 1
+    }
+  }
     ]);
 
-    res.json({
-      success: true,
-      data: stats,
-      message: "Log stats fetched successfully"
-    });
+res.json({
+  success: true,
+  data: stats,
+  message: "Log stats fetched successfully"
+});
   } catch (error) {
-    console.error("getLogStats failed:", error);
-    res.status(500).json({
-      success: false,
-      data: [],
-      message: error.message
-    });
-  }
+  console.error("getLogStats failed:", error);
+  res.status(500).json({
+    success: false,
+    data: [],
+    message: error.message
+  });
+}
 };
 
 
@@ -202,7 +208,7 @@ export const getMonthlyStats = async (req, res) => {
 
     const stats = await Log.aggregate([
       {
-        $match: { createdAt: { $gte: startDate, $lte: endDate } }, 
+        $match: { createdAt: { $gte: startDate, $lte: endDate } },
       },
       {
         $group: {

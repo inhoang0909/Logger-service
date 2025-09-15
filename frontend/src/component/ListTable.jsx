@@ -64,10 +64,14 @@ const detailColumns = [
 function DetailTable({ filteredStats, searchText, setSearchText }) {
   const [selectedDate, setSelectedDate] = React.useState(null);
 
-  // Filter logs by selected date
+  // Fix: Filter logs by selected date (compare only YYYY-MM-DD part)
   const dateFilteredStats = selectedDate
     ? filteredStats.filter(
-        (item) => item._id.date === dayjs(selectedDate).format("YYYY-MM-DD")
+        (item) => {
+          const logDate = dayjs(item._id.date).format("YYYY-MM-DD");
+          const selected = dayjs(selectedDate).format("YYYY-MM-DD");
+          return logDate === selected;
+        }
       )
     : filteredStats;
 

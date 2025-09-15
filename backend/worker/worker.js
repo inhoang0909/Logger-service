@@ -79,13 +79,14 @@ const startWorker = async () => {
       const data = await redisClient.blpop(LOG_QUEUE_KEY, 5);
       if (data && data[1]) {
         const logEntry = JSON.parse(data[1]);
+        console.log('Log entry before buffer push:', logEntry);
         buffer.push({
           service: logEntry.service || "unknown",
           endpoint: logEntry.endpoint || "unknown",
           method: logEntry.method || "UNKNOWN",
           status: logEntry.status || 0,
           ip: logEntry.ip || "unknown",
-          date: (logEntry.time || Date.now()),
+          date: new Date(logEntry.time || Date.now()),
           createdAt: new Date(logEntry.time || Date.now()),
         });
         console.log(`📥 Pulled log, buffer size=${buffer.length}`);
