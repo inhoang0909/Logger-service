@@ -13,7 +13,6 @@ function LogDashboard() {
   const [monthlyStats, setMonthlyStats] = useState([]);
   const [searchText, setSearchText] = useState("");
 
-  /** Fetch APIs */
   const fetchStats = async () => {
     try {
       const res = await axios.get("http://10.13.34.179:4000/logs/stats");
@@ -42,13 +41,11 @@ function LogDashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  /** Chart data */
   const chartData = monthlyStats.map(item => ({
     date: item.date,
     count: item.totalCalls,
   }));
 
-  /** Summary data */
   const summaryData = Object.values(
     stats.reduce((acc, item) => {
       const ep = item._id.endpoint;
@@ -67,7 +64,6 @@ function LogDashboard() {
     }, {})
   );
 
-  /** Filtered detail */
   const filteredStats = stats.filter((item) => {
     const endpoint = item._id?.endpoint?.toLowerCase() || "";
     return endpoint.includes(searchText.toLowerCase());
