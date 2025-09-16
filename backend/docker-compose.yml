@@ -1,0 +1,20 @@
+version: "3.9"
+
+services:
+  logger-server:
+    build: .
+    command: ["node", "server.js"]
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - MONGO_URI=${MONGO_URI}
+      - REDIS_URL=${REDIS_URL}
+
+  logger-worker:
+    build: .
+    command: ["node", "worker/worker.js"]
+    environment:
+      - NODE_ENV=production
+      - MONGO_URI=${MONGO_URI}
+      - REDIS_URL=${REDIS_URL}
