@@ -4,6 +4,7 @@ import { createServer } from "http";
 import connectDB from "./config/database.js";
 import logRoutes from "./routes/logRoutes.js";
 import loggerMiddleware from "./middleware/loggerMiddleware.js";
+import setupSwagger from './config/swagger.js';
 
 const app = express();
 
@@ -17,7 +18,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(express.json());
-
+setupSwagger(app);
 const httpServer = createServer(app);
 
 app.use(loggerMiddleware);
