@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { Layout, Row, Col } from "antd";
 import axios from "axios";
-import DetailTable from "../component/ListTable";
 import SummaryChart from "../component/SummaryChart";
 import SummaryTable from "../component/SummaryTable";
+import DetailTable from "../component/DetailTable/DetailTable";
 
 
 const { Header, Content } = Layout;

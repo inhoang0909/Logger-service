@@ -122,44 +122,44 @@ export const getLogStats = async (req, res) => {
               $dateToString: {
                 format: "%Y-%m-%d %H:%M",
                 date: "$updatedAt",
-                timezone: "Asia/Ho_Chi_Minh"  
+                timezone: "Asia/Ho_Chi_Minh"
               }
             }
-        },
-        totalCalls: { $sum: 1 },
-        successCalls: {
-          $sum: { $cond: [{ $lt: ["$status", 400] }, 1, 0] }
-        },
-        errorCalls: {
-          $sum: { $cond: [{ $gte: ["$status", 400] }, 1, 0] }
+          },
+          totalCalls: { $sum: 1 },
+          successCalls: {
+            $sum: { $cond: [{ $lt: ["$status", 400] }, 1, 0] }
+          },
+          errorCalls: {
+            $sum: { $cond: [{ $gte: ["$status", 400] }, 1, 0] }
+          }
+        }
+      },
+      {
+        $sort: {
+          "_id.date": -1,
+          "_id.service": 1,
+          "_id.endpoint": 1,
+          "_id.method": 1,
+          "_id.status": 1,
+          "_id.ip": 1
         }
       }
-      },
-  {
-    $sort: {
-      "_id.date": -1,
-        "_id.service": 1,
-          "_id.endpoint": 1,
-            "_id.method": 1,
-              "_id.status": 1,
-                "_id.ip": 1
-    }
-  }
     ]);
 
-res.json({
-  success: true,
-  data: stats,
-  message: "Log stats fetched successfully"
-});
+    res.json({
+      success: true,
+      data: stats,
+      message: "Log stats fetched successfully"
+    });
   } catch (error) {
-  console.error("getLogStats failed:", error);
-  res.status(500).json({
-    success: false,
-    data: [],
-    message: error.message
-  });
-}
+    console.error("getLogStats failed:", error);
+    res.status(500).json({
+      success: false,
+      data: [],
+      message: error.message
+    });
+  }
 };
 
 
@@ -194,7 +194,7 @@ export const getErrorLogs = async (req, res) => {
     });
   }
 };
-//GET monthly stats
+// GET /logs/monthly-stats → Thống kê theo ngày trong tháng
 export const getMonthlyStats = async (req, res) => {
   try {
     const { month, year } = req.query;
@@ -208,33 +208,48 @@ export const getMonthlyStats = async (req, res) => {
 
     const stats = await Log.aggregate([
       {
-        $match: { createdAt: { $gte: startDate, $lte: endDate } },
+        $match: {
+          createdAt: { $gte: startDate, $lte: endDate }
+        }
       },
       {
         $group: {
           _id: {
-            day: { $dayOfMonth: "$createdAt" },
-            month: { $month: "$createdAt" },
-            year: { $year: "$createdAt" },
+            date: {
+              $dateToString: {
+                format: "%Y-%m-%d",
+                date: "$createdAt",
+                timezone: "Asia/Ho_Chi_Minh"
+              }
+            }
           },
           totalCalls: { $sum: 1 },
-        },
+          successCalls: {
+            $sum: { $cond: [{ $lt: ["$status", 400] }, 1, 0] }
+          },
+          errorCalls: {
+            $sum: { $cond: [{ $gte: ["$status", 400] }, 1, 0] }
+          }
+        }
       },
-      { $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1 } },
+      {
+        $project: {
+          date: "$_id.date",
+          totalCalls: 1,
+          successCalls: 1,
+          errorCalls: 1,
+          _id: 0
+        }
+      },
+      { $sort: { date: 1 } }
     ]);
 
-    const formatted = stats.map((s) => ({
-      date: `${s._id.year}-${String(s._id.month).padStart(2, "0")}-${String(
-        s._id.day
-      ).padStart(2, "0")}`,
-      totalCalls: s.totalCalls,
-    }));
-
-    res.json({ success: true, data: formatted });
+    res.json({ success: true, data: stats });
   } catch (err) {
-    console.error(err);
+    console.error("getMonthlyStats failed:", err);
     res.status(500).json({ success: false, error: "Server error" });
   }
 };
+
 
 
