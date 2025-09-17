@@ -48,7 +48,14 @@ export const getLogStatsService = async () => {
         errorCalls: { $sum: { $cond: [{ $gte: ["$status", 400] }, 1, 0] } },
       },
     },
-    { $sort: { "_id.date": -1 } },
+    { $sort: { 
+      "_id.date": -1 ,
+      "_id.service": 1,
+      "_id.endpoint": 1,
+      "_id.method": 1,
+      "_id.status": 1,
+      "_id.ip": 1
+    } },
   ]);
 };
 

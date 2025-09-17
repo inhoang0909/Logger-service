@@ -1,12 +1,8 @@
 import 'dotenv/config';
 import connectDB from "../config/database.js";
-import Redis from "ioredis";
+import redisClient, { LOG_QUEUE_KEY } from "../config/redis.js";
 import Log from "../models/Log.js";
 
-const LOG_QUEUE_KEY = process.env.LOG_QUEUE_KEY || "log_queue";
-const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
-
-let redisClient;
 let buffer = [];
 const BATCH_SIZE = 100;
 const FLUSH_INTERVAL = 1000;
@@ -32,39 +28,6 @@ const flushLogs = async () => {
   } catch (err) {
     console.error("❌ flushLogs error:", err.message);
     buffer.unshift(...logs); // rollback buffer
-  }
-};
-
-/** Connect Redis with retry */
-const connectRedis = async () => {
-  while (true) {
-    try {
-      redisClient = new Redis(REDIS_URL, {
-        retryStrategy(times) {
-          const delay = Math.min(times * 1000, 5000);
-          console.log(`⏳ Redis reconnect in ${delay / 1000}s`);
-          return delay;
-        },
-      });
-
-      redisClient.on("connect", () => console.log("🔌 Redis connecting..."));
-      redisClient.on("ready", () => console.log("✅ Redis ready"));
-      redisClient.on("error", (err) => console.error("Redis error:", err.message));
-      redisClient.on("end", async () => {
-        console.log("❌ Redis disconnected, restarting worker...");
-        await sleep(2000);
-        await connectRedis();
-        startWorker(); // restart worker loop
-      });
-
-      await redisClient.ping();
-      console.log("✅ Redis connected (ping ok)");
-      break;
-    } catch (err) {
-      console.error("❌ Redis connect failed:", err.message);
-      console.log("⏳ Retry in 5s...");
-      await sleep(5000);
-    }
   }
 };
 
@@ -134,7 +97,7 @@ process.on("SIGTERM", shutdown);
 (async () => {
   try {
     await connectDB();
-    await connectRedis();
+    // await connectRedis(); // not needed
     startHeartbeat(); // bắt đầu ping Redis
     await startWorker();
   } catch (err) {

@@ -4,26 +4,38 @@ import { createServer } from "http";
 import connectDB from "./config/database.js";
 import logRoutes from "./routes/logRoutes.js";
 import loggerMiddleware from "./middleware/loggerMiddleware.js";
-import setupSwagger from './config/swagger.js';
-
+import swaggerUi from 'swagger-ui-express';
+import swaggerSpec from "./config/swagger.js";
 const app = express();
 
-const corsOptions = {
-  origin: ["http://localhost:5173", "http://localhost:3000", "http://10.13.32.51:8080", "http://10.13.34.179:5173"
-],
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://10.13.32.51:8080",
+  "http://10.13.34.179:5173",
+  "http://10.13.34.179:4000",
+  "http://0.0.0.0:4000",
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "x-source-service"],
-};
-
-app.use(cors(corsOptions));
+}));
 app.use(express.json());
-setupSwagger(app);
 const httpServer = createServer(app);
 
 app.use(loggerMiddleware);
 app.use("/logs", logRoutes);
-app.get('/', (req, res) => res.send('ok'));
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
 
 app.use((err, req, res, next) => {
   res.locals.errorMessage = err.message;
@@ -48,5 +60,4 @@ const startServer = async () => {
     console.error("Failed to start server:", err.message);
   }
 };
-
 startServer();

@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { Layout, Row, Col } from "antd";
+import { Layout, Row, Col, DatePicker, Select } from "antd";
 import axios from "axios";
 import SummaryChart from "../component/SummaryChart";
 import SummaryTable from "../component/SummaryTable";
 import DetailTable from "../component/DetailTable/DetailTable";
+import dayjs from "dayjs";
 
 
 const { Header, Content } = Layout;
@@ -12,6 +13,7 @@ function LogDashboard() {
   const [stats, setStats] = useState([]);
   const [monthlyStats, setMonthlyStats] = useState([]);
   const [searchText, setSearchText] = useState("");
+  const [selectedMonthYear, setSelectedMonthYear] = useState(null);
 
   const fetchStats = async () => {
     try {
@@ -22,9 +24,14 @@ function LogDashboard() {
     }
   };
 
-  const fetchMonthlyStats = async () => {
+  const fetchMonthlyStats = async (month, year) => {
     try {
-      const res = await axios.get("http://10.13.34.179:4000/logs/monthly-stats");
+      let url = "http://10.13.34.179:4000/logs/monthly-stats";
+      const params = [];
+      if (month) params.push(`month=${month}`);
+      if (year) params.push(`year=${year}`);
+      if (params.length) url += `?${params.join("&")}`;
+      const res = await axios.get(url);
       setMonthlyStats(res.data.data || []);
     } catch (err) {
       console.error("Error fetchMonthlyStats:", err);
@@ -32,14 +39,16 @@ function LogDashboard() {
   };
 
   useEffect(() => {
+    const month = selectedMonthYear ? selectedMonthYear.month() + 1 : undefined;
+    const year = selectedMonthYear ? selectedMonthYear.year() : undefined;
     fetchStats();
-    fetchMonthlyStats();
+    fetchMonthlyStats(month, year);
     const interval = setInterval(() => {
       fetchStats();
-      fetchMonthlyStats();
+      fetchMonthlyStats(month, year);
     }, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedMonthYear]);
 
   const chartData = monthlyStats.map(item => ({
     date: item.date,
@@ -76,7 +85,16 @@ function LogDashboard() {
       </Header>
       <Content style={{ padding: 24, height: "calc(100vh - 64px)", overflow: "auto" }}>
         <Row gutter={24}>
-          <Col span={24}><SummaryChart chartData={chartData} /></Col>
+          <Col span={24}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16, gap: 12 }}>
+
+            </div>
+            <SummaryChart
+              chartData={chartData}
+              selectedMonthYear={selectedMonthYear}
+              onMonthYearChange={setSelectedMonthYear}
+            />
+          </Col>
           <Col span={24}><SummaryTable summaryData={summaryData} /></Col>
           <Col span={24}>
             <DetailTable

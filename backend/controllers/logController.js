@@ -1,26 +1,25 @@
-import redisClient from "../config/redis.js";
+import redisClient, { LOG_QUEUE_KEY } from "../config/redis.js";
 import {
   createLogDirectService,
   getLogStatsService,
   getMonthlyStatsService,
 } from "../services/loggerService.js";
-import dotenv from "dotenv";
-
-dotenv.config();
-const LOG_QUEUE_KEY = process.env.LOG_QUEUE_KEY || "log_queue";
 
 export const enqueueLog = async (req, res) => {
   try {
     const logData = req.body;
+    console.log('enqueueLog called with:', logData);
     if (!logData || typeof logData !== "object")
       return res.status(400).json({ error: "Invalid log format" });
 
     if (logData.endpoint === "/favicon.ico")
       return res.status(200).json({ success: false, message: "Skipped favicon" });
 
-    await redisClient.rpush(LOG_QUEUE_KEY, JSON.stringify(logData));
+    const result = await redisClient.rpush(LOG_QUEUE_KEY, JSON.stringify(logData));
+    console.log(`rpush result: ${result}`);
     res.status(200).json({ success: true, message: "Log enqueued" });
   } catch (err) {
+    console.error('enqueueLog error:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 };

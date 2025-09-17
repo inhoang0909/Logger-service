@@ -29,3 +29,4 @@ setInterval(async () => {
 }, 30000);
 
 export default redisClient;
+export { LOG_QUEUE_KEY };
